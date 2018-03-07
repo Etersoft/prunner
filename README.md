@@ -7,11 +7,11 @@ prunner - 'Process Runner'
 
 Depends
 -------
-- psutil
+- psutil (python module)
 
 Usage
 -----
-    prunner -p main_pid [-d dir | -f file]
+    prunner -p pid [-d dir | -f file]
 
 Help
 ----
@@ -65,12 +65,12 @@ Example 2 (run from file)
 
 В квадратных скобках можно указать следующие флаги (для запускаемых программ):
 - restart     - перезапустить процесс в случае вылета. По умолчанию: False
-- verbose     - выводить stdout,stderr на экране. По умолчанию False
+- verbose     - выводить stdout,stderr на экран. По умолчанию False
 - ignore_fail - игнорировать вылет или завершение процесса. По умолчанию True
 - shell=False - Запуска без shell. По умолчанию: shell=True
 
 <code>
-"restart=0,ignore_fail=1" - игнорировать завершение или отказ запуска и не перезапускать
+"restart=0,ignore_fail=1" - игнорировать завершение или отказ запуска и не перезапускать (по сути, запустить один раз)
 "restart=1,ignore_fail=0" - попытаться перезапустить процесс и если не удалось, завершить работу программы
 "restart=0,ignore_fail=0" - завершить работу программы если процесс не запустился или завершился во время работы
 "restart=1,ignore_fail=1" - игнорировать неудачные запуски, но пытаться снова перезапускать
@@ -78,5 +78,5 @@ Example 2 (run from file)
 
 Example 3 
 ---------
-    prunner -p PID -d ./child.d -f runlist
+    prunner -p PID -d ./child.d -f runlist.txt
 Т.е. можно указывать и каталог и файл одновременно
