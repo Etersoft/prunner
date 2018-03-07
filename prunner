@@ -1,0 +1,342 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import sys
+import os
+import threading
+import psutil
+
+# Global variables
+timeout_for_terminate = 5  # sec
+check_alive_period = 5  # sec
+verbose = False
+
+term_check_alive = threading.Event()
+term_check_alive.clear()
+
+
+def log_error(text):
+    print "(prunner): ERROR: %s" % text
+
+
+def log_info(text):
+    if verbose:
+        print "(prunner): %s" % text
+
+
+def get_arg_param(param, defval=""):
+    plist = list()
+    if isinstance(param, list):
+        plist = param
+    else:
+        plist.append(param)
+
+    for i in range(0, len(sys.argv)):
+        if sys.argv[i] in plist:
+            if i + 1 < len(sys.argv):
+                return sys.argv[i + 1]
+            else:
+                break
+
+    return defval
+
+
+def check_arg_param(param):
+    plist = list()
+    if isinstance(param, list):
+        plist = param
+    else:
+        plist.append(param)
+
+    for i in range(0, len(sys.argv)):
+        if sys.argv[i] in plist:
+            return True
+
+    return False
+
+
+class ChildProc:
+    """
+    The class describing properties of child processes
+    """
+
+    def __init__(self, cmd, params=list()):
+
+        self.cmd = cmd  # command
+        self.restart = False  # restart if exit
+        self.ignore_fail = True  # ignore run fail
+        self.shell = True  # run with shell
+        self.verbose = False  # False - disable stdout,stderr (dev/null)
+        self.proc = None
+
+        for p in params:
+            if hasattr(self, p['name']):
+                setattr(self, p['name'], p['value'])
+
+    def is_ignore_fail(self):
+        if not self.restart and not self.ignore_fail:
+            return False
+
+        if not self.restart:
+            return True
+
+        return self.ignore_fail
+
+
+def do_check_alive(childs):
+    """
+    Process monitoring, and restart if necessary.
+    :param childs: list of 'ChildProc' objects
+    :return: None
+    """
+    while not term_check_alive.is_set():
+        for p in childs:
+
+            try:
+                if p.proc.is_running() or psutil.pid_exists(p.proc.pid):
+                    p.proc.wait(0.5)
+            except psutil.TimeoutExpired:
+                if term_check_alive.is_set():
+                    break
+
+                log_info("LIVE [OK]: %s" % p.cmd)
+                continue
+
+            if not p.restart and not p.is_ignore_fail():
+                term_check_alive.set()
+                log_error("FAIL PROCESS: %s" % p.cmd)
+                break
+
+            if not p.restart:
+                continue
+
+            log_info("restart process(%d): '%s'" % (p.proc.pid, p.cmd))
+            p.proc = None
+            if not do_run_process(p) and not p.is_ignore_fail():
+                term_check_alive.set()
+                log_error("FAIL PROCESS: %s" % p.cmd)
+                break
+
+            if term_check_alive.is_set():
+                break
+
+        term_check_alive.wait(check_alive_period)
+
+
+def do_run_process(child):
+    """
+    Run process
+    :param child: 'ChildProc' object
+    :return: False - if run fail
+    """
+    log_info("run %s" % child.cmd)
+    try:
+        sout = None
+        serr = None
+        if not child.verbose:
+            nul_f = open(os.devnull, 'w')
+            sout = nul_f
+            serr = nul_f
+
+        child.proc = psutil.Popen(child.cmd, shell=child.shell, stdout=sout, stderr=serr)
+        try:
+            child.proc.wait(0.5)
+        except psutil.TimeoutExpired:
+            pass
+
+        if not child.proc.is_running() and not child.is_ignore_fail():
+            log_error("run '%s' FAILED" % child.cmd)
+            return False
+    except OSError:
+        if not child.is_ignore_fail():
+            log_error("run '%s' FAILED" % child.cmd)
+            return False
+
+    return True
+
+
+def do_monitoring(main_pid, run_list, not_monit):
+    """
+    Running processes and monitoring
+    :param main_pid: pid for monitoring
+    :param run_list: list of process for run
+    :param not_monit: True - disable monitoring (only run process)
+    :return: None
+    """
+    proc_list = list()
+    for p in run_list:
+        if do_run_process(p):
+            proc_list.append(p)
+        else:
+            terminate_all_process(proc_list)
+            exit(1)
+
+    check_alive_thread = threading.Thread(target=do_check_alive, args=(proc_list,))
+    try:
+        if not_monit:
+            return
+
+        term_check_alive.clear()
+        check_alive_thread.start()
+        p = psutil.Process(main_pid)
+        while not term_check_alive.is_set():
+            try:
+                p.wait(check_alive_period)
+            except psutil.TimeoutExpired:
+                pass
+
+    except (KeyboardInterrupt, SystemExit):
+        pass
+
+    finally:
+        term_check_alive.set()
+        if check_alive_thread:
+            check_alive_thread.join()
+        terminate_all_process(proc_list)
+
+
+def terminate_all_process(proc_list):
+    """
+    Terminate all process
+    :param proc_list: list of 'ChildProc' objects
+    :return: None
+    """
+    log_info("terminate all process..")
+    term_list = list()
+    for rp in proc_list:
+        term_list.append(rp.proc)
+
+    gone, alive = psutil.wait_procs(term_list, timeout=timeout_for_terminate)
+    for p in alive:
+        p.kill()
+
+
+def parse_run_parameters(line):
+    """
+    get parameters from string
+    :param line: "[param1=val1,param2,param3=val3,..]command"
+    :return: ['command', [{'name': 'param1', 'value': 'val1'}, {'name': 'param2', 'value': True}, {'name': 'param3', 'value': 'val'}]]
+    """
+    if line.startswith("["):
+        endpos = line.find(']')
+        if endpos != -1:
+            params = list()
+            plist = line[1:endpos].split(',')
+            for p in plist:
+                v = dict()
+                a = p.split('=')
+                if len(a) > 1:
+                    v['name'] = a[0].strip()
+                    val = a[1].strip()
+                    if val.isdigit():
+                        val = int(val)
+                    elif val.lower() == 'true' or val.lower() == 'false':
+                        val = bool(val)
+
+                    v['value'] = val
+                else:
+                    v['name'] = a[0].strip()
+                    v['value'] = True
+
+                if len(v['name']) > 0:
+                    params.append(v)
+
+            return [line[endpos + 1:].strip(), params]
+
+    return [line.strip(), list()]
+
+
+def read_from_file(fname):
+    """
+    Make process list from file
+    :param fname: filename
+    :return: list of 'ChildProc' objects
+    """
+    if not os.path.exists(fname):
+        log_error("Not found file '%s'" % fname)
+        return list()
+
+    run_list = list()
+    with open(fname) as pfile:
+        for line in pfile:
+            if len(line) == 0 or line.startswith("#"):
+                continue
+
+            p = None
+            if line.startswith("["):
+                cmd, params = parse_run_parameters(line)
+                p = ChildProc(cmd=cmd, params=params)
+
+            if not p:
+                p = ChildProc(cmd=line)
+
+            run_list.append(p)
+
+    return run_list
+
+
+def read_from_dir(dname):
+    """
+    Make list from directory
+    :param dname: directory name (path)
+    :return: list of 'ChildProc' objects
+    """
+    ret = list()
+
+    if not os.path.exists(dname):
+        return ret
+
+    plist = list()
+    for f in os.listdir(dname):
+        p = ChildProc(cmd=os.path.join(dname, f))
+        plist.append(p)
+
+    return plist
+
+
+def usage():
+    print "-d|--run-from-dir dir       - run programm from directory"
+    print "-f|--run-from-file file     - run programm from file"
+    print "-p|--monitor-pid pid        - pid of main process (for monitoring)"
+    print "-v|--verbose                - Print info messages"
+    print "--disable-monitor           - only run process"
+    print "-c|--check-period sec       - period for check processes. Default: %s" % check_alive_period
+    print "-t|--terminate-timeout sec  - timeout for teminate processes (then the processes will be killed). Default: %s" % timeout_for_terminate
+
+
+if __name__ == "__main__":
+
+    from_dir = get_arg_param(['-d', '--run-from-dir'], '/etc/nxagent/nxssh.d')
+    from_file = get_arg_param(['-f', '--run-from-file'], '')
+    main_pid = int(get_arg_param(['-p', '--monitor-pid'], '0'))
+    not_monit = check_arg_param(['--disable-monitor'])
+    verbose = check_arg_param(['-v', '--verbose'])
+    check_alive_period = int(get_arg_param(['-c', '--check-period'], '%s' % check_alive_period))
+    timeout_for_terminate = int(get_arg_param(['-t', '--terminate-timeout'], '%s' % timeout_for_terminate))
+
+    if check_arg_param(['-h', '--help']):
+        usage()
+        exit(0)
+
+    if not not_monit:
+        if main_pid == 0:
+            usage()
+            exit(1)
+
+        if not psutil.pid_exists(main_pid):
+            log_error("process with pid '%d' not exist" % main_pid)
+            exit(1)
+
+    run_list = list()
+
+    if len(from_file) > 0:
+        run_list = run_list + read_from_file(from_file)
+
+    if len(from_dir):
+        run_list = run_list + read_from_dir(from_dir)
+
+    if len(run_list) == 0:
+        log_error("not found run list. Use -h for help")
+        exit(1)
+
+    do_monitoring(main_pid, run_list, not_monit=not_monit)
