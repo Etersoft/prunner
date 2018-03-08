@@ -15,9 +15,9 @@ Usage
 
 Help
 ----
-    -d | --run-from-dir dir                - run programm from directory
-    -f | --run-from-file file              - run programm from file
-    -r | --run '[params]prog args..'       - run programm from command line"
+    -d | --run-from-dir dir                - run program from directory
+    -f | --run-from-file file              - run program from file
+    -r | --run '[params]prog args..'       - run program from command line"
     -p | --monitor-pid pid                 - pid of main process (for monitoring)
     -v | --verbose                         - Print info messages
     -V | --version                         - Version info
@@ -53,14 +53,14 @@ Example 2 (run from file)
     
     prunner -p PID -f ./runlist.txt
 
-В данном случае, если процесс PID существуют, будут запущены программы указанные в файле 'runlist.txt'.
+В данном случае, если процесс PID существуют, будут запущены программы указанные в файле 'runlist.txt',
 а как только процесс PID завершится, запущенные программы будут остановлены.
 
 Формат файла
 -------------
 - каждая команда располагается на новой строке
 - строки начинающиеся с '#' считаются коментариями и игнорируются
-- Формат строки: [param1=val1,param2,param3=val3] command args..
+- Формат строки запуска: [param1=val1,param2,param3=val3] command args..
 
 Параметры [...] не являются обязательными.
 Если у параметра не указан 'val', считается, что значение 'True'.
@@ -68,19 +68,22 @@ Example 2 (run from file)
 В квадратных скобках можно указать следующие флаги (для запускаемых программ):
 - restart[=val]      - Перезапустить процесс в случае вылета. Если указан val, то он задаёт количество разрешённых перезапусков, после которого prunner завершит работу с ошибкой. По умолчанию процессы не перезапускаются.
 - restart_pause=sec  - Пауза между попытками перезапуска, сек. По умолчанию: 5 сек (не может быть меньше --check-period)
-- verbose            - выводить stdout,stderr на экран. По умолчанию False
-- shell=0            - Запуска без shell. По умолчанию: shell=True
+- verbose            - выводить stdout,stderr процесса на экран. По умолчанию False
+- shell=0            - Запуск без shell. По умолчанию: shell=True
 
 
 Пояснения к 'restart'
 - **"restart = -1"** - Не перезапускать процесс в случае вылета или неудачного пуска. По сути это 'запустить один раз'. Это действие по умолчанию.
 - **"restart = 0"**  - Постоянно перезапускать. Можно также просто указать [restart]
-- **"restart > 0"**  - задаёт количество разрешённых перезапусков, после которого считается prunner вылетит с ошибкой
+- **"restart > 0"**  - задаёт количество разрешённых перезапусков, после которого prunner вылетит с ошибкой и завершит все запущенные процессы.
 
 
 Example 3 (run from command line)
 ---------------------------------
-    prunner -p PID -r '[restart] prog1 arg1 arg2' -r '[restart=0,verbose] prog2 arg1 arg2' --run '[shell=0,ignore_fail=0] prog3 arg1 arg2'
+    prunner -p PID -r '[restart] prog1 arg1 arg2' -r '[restart=0,verbose] prog2 arg1 arg2' ...
+
+Запускаемые программы можно указывать непосредственно в командной строке (параметром -r или --run). 
+При этом параметры можно указывать многократно.
 
 
 Example 4 
