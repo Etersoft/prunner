@@ -1,6 +1,6 @@
 Name: prunner
 Version: 0.0.1
-Release: alt0.1
+Release: alt1
 
 Summary: Running and monitoring a process group
 Group: Development/Python
@@ -35,3 +35,6 @@ install -D -m0755 bin/prunner %buildroot%_bindir/%name
 %_bindir/%name
 
 %changelog
+* Thu Mar 08 2018 Pavel Vainerman <pv@altlinux.ru> 0.0.1-alt1
+- first build
+
