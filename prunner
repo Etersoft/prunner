@@ -262,15 +262,11 @@ def read_from_file(fname):
             if len(line) == 0 or line.startswith("#"):
                 continue
 
-            p = None
             if line.startswith("["):
                 cmd, params = parse_run_parameters(line)
-                p = ChildProc(cmd=cmd, params=params)
-
-            if not p:
-                p = ChildProc(cmd=line)
-
-            run_list.append(p)
+                run_list.append(ChildProc(cmd=cmd, params=params))
+            else:
+                run_list.append(ChildProc(cmd=line))
 
     return run_list
 
@@ -281,10 +277,8 @@ def read_from_dir(dname):
     :param dname: directory name (path)
     :return: list of 'ChildProc' objects
     """
-    ret = list()
-
     if not os.path.exists(dname):
-        return ret
+        return list()
 
     plist = list()
     for f in os.listdir(dname):
@@ -294,14 +288,49 @@ def read_from_dir(dname):
     return plist
 
 
+def read_from_commandline(param):
+    params = list()
+    if isinstance(param, list):
+        params = param
+    else:
+        params.append(param)
+
+    plist = list()
+
+    skip = False
+    for i in range(0, len(sys.argv)):
+        if skip:
+            skip = False
+            continue
+
+        if sys.argv[i] in params:
+            if i + 1 >= len(sys.argv):
+                break
+
+            arg = sys.argv[i + 1]
+            if arg.startswith('-') or arg.startswith('--'):
+                log_info("(read_from_commandline): ignore '%s' because an argument is required..." % sys.argv[i])
+                continue
+
+            skip = True
+            if arg.startswith("["):
+                cmd, params = parse_run_parameters(arg)
+                plist.append(ChildProc(cmd=cmd, params=params))
+            else:
+                plist.append(ChildProc(cmd=arg))
+
+    return plist
+
+
 def usage():
-    print "-d|--run-from-dir dir       - run programm from directory"
-    print "-f|--run-from-file file     - run programm from file"
-    print "-p|--monitor-pid pid        - pid of main process (for monitoring)"
-    print "-v|--verbose                - Print info messages"
-    print "--disable-monitor           - only run process"
-    print "-c|--check-period sec       - period for check processes. Default: %s" % check_alive_period
-    print "-t|--terminate-timeout sec  - timeout for teminate processes (then the processes will be killed). Default: %s" % timeout_for_terminate
+    print "[-d|--run-from-dir] dir       - run programm from directory"
+    print "[-f|--run-from-file] file     - run programm from file"
+    print "[-r|--run] '[params]prog'     - run programm from command line"
+    print "[-p|--monitor-pid] pid        - pid of main process (for monitoring)"
+    print "[-v|--verbose]                - Print info messages"
+    print "--disable-monitor             - only run process"
+    print "[-c|--check-period] sec       - period for check processes. Default: %s" % check_alive_period
+    print "[-t|--terminate-timeout] sec  - timeout for teminate processes (then the processes will be killed). Default: %s" % timeout_for_terminate
 
 
 if __name__ == "__main__":
@@ -334,6 +363,8 @@ if __name__ == "__main__":
 
     if len(from_dir):
         run_list = run_list + read_from_dir(from_dir)
+
+    run_list = run_list + read_from_commandline(['-r', '--run'])
 
     if len(run_list) == 0:
         log_error("not found run list. Use -h for help")

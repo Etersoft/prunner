@@ -11,17 +11,18 @@ Depends
 
 Usage
 -----
-    prunner -p pid [-d dir | -f file]
+    prunner -p pid [-d dir | -f file | -r '[params]prog args..']
 
 Help
 ----
-    -d | --run-from-dir dir       - run programm from directory
-    -f | --run-from-file file     - run programm from file
-    -p | --monitor-pid pid        - pid of main process (for monitoring)
-    -v | --verbose                - Print info messages
-    --disable-monitor             - only run process
-    -c | --check-period sec       - period for check processes. Default: 5 sec
-    -t | --terminate-timeout sec  - timeout for teminate processes (then the processes will be killed). Default: 5 sec
+    -d | --run-from-dir dir                - run programm from directory
+    -f | --run-from-file file              - run programm from file
+    -r | --run '[params]prog args..'       - run programm from command line"
+    -p | --monitor-pid pid                 - pid of main process (for monitoring)
+    -v | --verbose                         - Print info messages
+    --disable-monitor                      - only run process
+    -c | --check-period sec                - period for check processes. Default: 5 sec
+    -t | --terminate-timeout sec           - timeout for teminate processes (then the processes will be killed). Default: 5 sec
 
 Example 1 (run from directory)
 ------------------------------
@@ -40,13 +41,13 @@ Example 2 (run from file)
 -------------------------
     cat runlist.txt
     
-    [restart] prog1
+    [restart] prog1 arg1 arg2
     # comment 1
-    [ignore_fail,restart] prog2
+    [ignore_fail,restart] prog2 arg1 arg2
     # comment 2
     [verbose,shell=False] prog3
-    prog4
-    prog5
+    prog4 arg1 arg2
+    prog5 arg1
 
     
     prunner -p PID -f ./runlist.txt
@@ -76,7 +77,12 @@ Example 2 (run from file)
 "restart=1,ignore_fail=1" - игнорировать неудачные запуски, но пытаться снова перезапускать
 </code>
 
-Example 3 
+Example 3 (run from command line)
+---------------------------------
+    prunner -p PID -r '[restart] prog1 arg1 arg2' -r '[restart=0,verbose] prog2 arg1 arg2' --run '[shell=0,ignore_fail=0] prog3 arg1 arg2'
+
+
+Example 4 
 ---------
-    prunner -p PID -d ./child.d -f runlist.txt
-Т.е. можно указывать и каталог и файл одновременно
+    prunner -p PID -d ./child.d -f runlist.txt -r '[restart] prog1 arg1 arg2'
+Т.е. можно указывать и каталог и файл и -r одновременно
