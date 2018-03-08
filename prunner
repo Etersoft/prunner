@@ -5,11 +5,15 @@ import sys
 import os
 import threading
 import psutil
+import time
+
+PRUNNER_VERSION = "0.0.1"
 
 # Global variables
 timeout_for_terminate = 5  # sec
 check_alive_period = 5  # sec
 verbose = False
+check_alive_wait = 0.5  # sec
 
 term_check_alive = threading.Event()
 term_check_alive.clear()
@@ -62,25 +66,107 @@ class ChildProc:
 
     def __init__(self, cmd, params=list()):
 
+        # config parameters (Default values)
         self.cmd = cmd  # command
-        self.restart = False  # restart if exit
-        self.ignore_fail = True  # ignore run fail
+
+        # <=0  - do not restart
+        # 0    - always restart
+        # >0   - the number of restart attempts
+        self.restart = -1
+        self.restart_pause = check_alive_period  # sec
+
         self.shell = True  # run with shell
         self.verbose = False  # False - disable stdout,stderr (dev/null)
-        self.proc = None
 
+        # init from params
         for p in params:
             if hasattr(self, p['name']):
                 setattr(self, p['name'], p['value'])
 
-    def is_ignore_fail(self):
-        if not self.restart and not self.ignore_fail:
-            return False
+        if isinstance(self.restart, bool):
+            print "for '%s'  restart is BOOL" % self.cmd
+            self.restart = int(0)
 
-        if not self.restart:
+        # internal fields
+        self.proc = None
+        self.restart_attempt = 0
+        self.restart_next_time = time.time()
+        self.restart_reset()
+
+    def is_restart_fail(self):
+        return self.restart > 0 and self.restart_attempt > self.restart
+
+    def is_ignore_restart(self):
+
+        if self.restart < 0:
             return True
 
-        return self.ignore_fail
+        if self.restart_pause > 0 and time.time() <= self.restart_next_time:
+            return True
+
+        return False
+
+    def restart_reset(self):
+
+        if self.restart < 0:
+            return
+
+        # not monotonic timer in python < 3.3! :(
+        # if sys.version_info >= (3,3)..
+        if self.restart_pause > 0:
+            self.restart_next_time = time.time() + self.restart_pause
+
+        if self.restart > 0:
+            self.restart_attempt = self.restart_attempt + 1
+
+    def run(self):
+        """
+        Run process
+        :return: False - if run fail
+        """
+        log_info("run %s" % self.cmd)
+        try:
+            sout = None
+            serr = None
+            if not self.verbose:
+                nul_f = open(os.devnull, 'w')
+                sout = nul_f
+                serr = nul_f
+
+            self.proc = psutil.Popen(self.cmd, shell=self.shell, stdout=sout, stderr=serr)
+            return self.check_alive()
+
+        except OSError:
+            if not self.is_restart_fail():
+                log_error("RUN [FAIL]: '%s'" % self.cmd)
+                return False
+
+        return True
+
+    def check_alive(self):
+
+        try:
+            if self.proc.is_running() or psutil.pid_exists(self.proc.pid):
+                self.proc.wait(check_alive_wait)
+        except psutil.TimeoutExpired:
+            log_info("ALIVE [OK]: %s" % self.cmd)
+            return True
+
+        if self.is_ignore_restart():
+            return True
+
+        if self.is_restart_fail():
+            return False
+
+        log_info("restart process[pid='%d' attempt=%d max=%d]: '%s'" % (
+            self.proc.pid, self.restart_attempt, self.restart, self.cmd))
+        self.restart_reset()
+        self.proc = None
+        if not self.run() and self.is_restart_fail():
+            log_error("RUN [FAIL]: %s" % self.cmd)
+            return False
+
+        return True
 
 
 def do_check_alive(childs):
@@ -92,67 +178,15 @@ def do_check_alive(childs):
     while not term_check_alive.is_set():
         for p in childs:
 
-            try:
-                if p.proc.is_running() or psutil.pid_exists(p.proc.pid):
-                    p.proc.wait(0.5)
-            except psutil.TimeoutExpired:
-                if term_check_alive.is_set():
-                    break
-
-                log_info("LIVE [OK]: %s" % p.cmd)
-                continue
-
-            if not p.restart and not p.is_ignore_fail():
+            if not p.check_alive():
                 term_check_alive.set()
-                log_error("FAIL PROCESS: %s" % p.cmd)
-                break
-
-            if not p.restart:
-                continue
-
-            log_info("restart process(%d): '%s'" % (p.proc.pid, p.cmd))
-            p.proc = None
-            if not do_run_process(p) and not p.is_ignore_fail():
-                term_check_alive.set()
-                log_error("FAIL PROCESS: %s" % p.cmd)
+                log_error("ALIVE [FAIL]: %s" % p.cmd)
                 break
 
             if term_check_alive.is_set():
                 break
 
         term_check_alive.wait(check_alive_period)
-
-
-def do_run_process(child):
-    """
-    Run process
-    :param child: 'ChildProc' object
-    :return: False - if run fail
-    """
-    log_info("run %s" % child.cmd)
-    try:
-        sout = None
-        serr = None
-        if not child.verbose:
-            nul_f = open(os.devnull, 'w')
-            sout = nul_f
-            serr = nul_f
-
-        child.proc = psutil.Popen(child.cmd, shell=child.shell, stdout=sout, stderr=serr)
-        try:
-            child.proc.wait(0.5)
-        except psutil.TimeoutExpired:
-            pass
-
-        if not child.proc.is_running() and not child.is_ignore_fail():
-            log_error("run '%s' FAILED" % child.cmd)
-            return False
-    except OSError:
-        if not child.is_ignore_fail():
-            log_error("run '%s' FAILED" % child.cmd)
-            return False
-
-    return True
 
 
 def do_monitoring(main_pid, run_list, not_monit):
@@ -165,7 +199,7 @@ def do_monitoring(main_pid, run_list, not_monit):
     """
     proc_list = list()
     for p in run_list:
-        if do_run_process(p):
+        if p.run():
             proc_list.append(p)
         else:
             terminate_all_process(proc_list)
@@ -178,10 +212,10 @@ def do_monitoring(main_pid, run_list, not_monit):
 
         term_check_alive.clear()
         check_alive_thread.start()
-        p = psutil.Process(main_pid)
+        monit_process = psutil.Process(main_pid)
         while not term_check_alive.is_set():
             try:
-                p.wait(check_alive_period)
+                monit_process.wait(check_alive_period)
             except psutil.TimeoutExpired:
                 pass
 
@@ -201,7 +235,7 @@ def terminate_all_process(proc_list):
     :param proc_list: list of 'ChildProc' objects
     :return: None
     """
-    log_info("terminate all process..")
+    log_info("terminate all processes..")
     term_list = list()
     for rp in proc_list:
         term_list.append(rp.proc)
@@ -253,11 +287,11 @@ def read_from_file(fname):
     :return: list of 'ChildProc' objects
     """
     if not os.path.exists(fname):
-        log_error("Not found file '%s'" % fname)
+        log_error("(read_from_file): Not found file '%s'" % fname)
         return list()
 
     run_list = list()
-    with open(fname) as pfile:
+    with open(fname, 'r') as pfile:
         for line in pfile:
             if len(line) == 0 or line.startswith("#"):
                 continue
@@ -323,17 +357,27 @@ def read_from_commandline(param):
 
 
 def usage():
-    print "[-d|--run-from-dir] dir       - run programm from directory"
-    print "[-f|--run-from-file] file     - run programm from file"
-    print "[-r|--run] '[params]prog'     - run programm from command line"
-    print "[-p|--monitor-pid] pid        - pid of main process (for monitoring)"
-    print "[-v|--verbose]                - Print info messages"
-    print "--disable-monitor             - only run process"
-    print "[-c|--check-period] sec       - period for check processes. Default: %s" % check_alive_period
-    print "[-t|--terminate-timeout] sec  - timeout for teminate processes (then the processes will be killed). Default: %s" % timeout_for_terminate
+    print "[-d|--run-from-dir] dir           - run programm from directory"
+    print "[-f|--run-from-file] file         - run programm from file"
+    print "[-r|--run] '[params]prog args..'  - run programm from command line"
+    print "[-p|--monitor-pid] pid            - pid of main process (for monitoring)"
+    print "[-v|--verbose]                    - Print info messages"
+    print "[-V|--version]                    - Version info"
+    print "[-c|--check-period] sec           - period for check processes. Default: %s" % check_alive_period
+    print "[-t|--terminate-timeout] sec      - timeout for teminate processes"
+    print "                                    Then the processes will be killed. Default: %s" % timeout_for_terminate
+    print "--disable-monitor                 - only run process"
 
 
 if __name__ == "__main__":
+
+    if check_arg_param(['--version', '-V']):
+        print "Version: %s" % PRUNNER_VERSION
+        exit(0)
+
+    if check_arg_param(['-h', '--help']):
+        usage()
+        exit(0)
 
     from_dir = get_arg_param(['-d', '--run-from-dir'], '/etc/nxagent/nxssh.d')
     from_file = get_arg_param(['-f', '--run-from-file'], '')
@@ -342,10 +386,6 @@ if __name__ == "__main__":
     verbose = check_arg_param(['-v', '--verbose'])
     check_alive_period = int(get_arg_param(['-c', '--check-period'], '%s' % check_alive_period))
     timeout_for_terminate = int(get_arg_param(['-t', '--terminate-timeout'], '%s' % timeout_for_terminate))
-
-    if check_arg_param(['-h', '--help']):
-        usage()
-        exit(0)
 
     if not not_monit:
         if main_pid == 0:

@@ -20,6 +20,7 @@ Help
     -r | --run '[params]prog args..'       - run programm from command line"
     -p | --monitor-pid pid                 - pid of main process (for monitoring)
     -v | --verbose                         - Print info messages
+    -V | --version                         - Version info
     --disable-monitor                      - only run process
     -c | --check-period sec                - period for check processes. Default: 5 sec
     -t | --terminate-timeout sec           - timeout for teminate processes (then the processes will be killed). Default: 5 sec
@@ -59,23 +60,23 @@ Example 2 (run from file)
 -------------
 - каждая команда располагается на новой строке
 - строки начинающиеся с '#' считаются коментариями и игнорируются
-- Формат строки: [param1=val1,param2,param3=val3] command
+- Формат строки: [param1=val1,param2,param3=val3] command args..
 
 Параметры [...] не являются обязательными.
 Если у параметра не указан 'val', считается, что значение 'True'.
 
 В квадратных скобках можно указать следующие флаги (для запускаемых программ):
-- restart     - перезапустить процесс в случае вылета. По умолчанию: False
-- verbose     - выводить stdout,stderr на экран. По умолчанию False
-- ignore_fail - игнорировать вылет или завершение процесса. По умолчанию True
-- shell=False - Запуска без shell. По умолчанию: shell=True
+- restart[=val]      - Перезапустить процесс в случае вылета. Если указан val, то он задаёт количество разрешённых перезапусков, после которого prunner завершит работу с ошибкой. По умолчанию процессы не перезапускаются.
+- restart_pause=sec  - Пауза между попытками перезапуска, сек. По умолчанию: 5 сек (не может быть меньше --check-period)
+- verbose            - выводить stdout,stderr на экран. По умолчанию False
+- shell=0            - Запуска без shell. По умолчанию: shell=True
 
-<code>
-"restart=0,ignore_fail=1" - игнорировать завершение или отказ запуска и не перезапускать (по сути, запустить один раз)
-"restart=1,ignore_fail=0" - попытаться перезапустить процесс и если не удалось, завершить работу программы
-"restart=0,ignore_fail=0" - завершить работу программы если процесс не запустился или завершился во время работы
-"restart=1,ignore_fail=1" - игнорировать неудачные запуски, но пытаться снова перезапускать
-</code>
+
+Пояснения к 'restart'
+- **"restart = -1"** - Не перезапускать процесс в случае вылета или неудачного пуска. По сути это 'запустить один раз'. Это действие по умолчанию.
+- **"restart = 0"**  - Постоянно перезапускать. Можно также просто указать [restart]
+- **"restart > 0"**  - задаёт количество разрешённых перезапусков, после которого считается prunner вылетит с ошибкой
+
 
 Example 3 (run from command line)
 ---------------------------------
@@ -84,5 +85,5 @@ Example 3 (run from command line)
 
 Example 4 
 ---------
-    prunner -p PID -d ./child.d -f runlist.txt -r '[restart] prog1 arg1 arg2'
+    prunner -p PID -d ./child.d -f runlist.txt -r '[restart=2] prog1 arg1 arg2'
 Т.е. можно указывать и каталог и файл и -r одновременно
