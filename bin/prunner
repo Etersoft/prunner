@@ -84,7 +84,6 @@ class ChildProc:
                 setattr(self, p['name'], p['value'])
 
         if isinstance(self.restart, bool):
-            print "for '%s'  restart is BOOL" % self.cmd
             self.restart = int(0)
 
         # internal fields
@@ -215,7 +214,8 @@ def do_monitoring(main_pid, run_list, not_monit):
         monit_process = psutil.Process(main_pid)
         while not term_check_alive.is_set():
             try:
-                monit_process.wait(check_alive_period)
+                if not monit_process.wait(check_alive_period):
+                    break
             except psutil.TimeoutExpired:
                 pass
 
@@ -224,7 +224,7 @@ def do_monitoring(main_pid, run_list, not_monit):
 
     finally:
         term_check_alive.set()
-        if check_alive_thread:
+        if check_alive_thread.is_alive():
             check_alive_thread.join()
         terminate_all_process(proc_list)
 
