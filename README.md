@@ -15,15 +15,15 @@ Usage
 
 Help
 ----
-    -d | --run-from-dir dir                - run program from directory
-    -f | --run-from-file file              - run program from file
-    -r | --run '[params]prog args..'       - run program from command line"
+    -d | --run-from-dir dir                - run programs from directory
+    -f | --run-from-file file              - run programs from file
+    -r | --run '[params]prog args..'       - run programs from command line"
     -p | --monitor-pid pid                 - pid of main process (for monitoring)
     -v | --verbose                         - Print info messages
     -V | --version                         - Version info
-    --disable-monitor                      - only run process
     -c | --check-period sec                - period for check processes. Default: 5 sec
     -t | --terminate-timeout sec           - timeout for teminate processes (then the processes will be killed). Default: 5 sec
+    --disable-monitor                      - only run process
 
 Example 1 (run from directory)
 ------------------------------
@@ -44,9 +44,9 @@ Example 2 (run from file)
     
     [restart] prog1 arg1 arg2
     # comment 1
-    [ignore_fail,restart] prog2 arg1 arg2
+    [restart=5] prog2 arg1 arg2
     # comment 2
-    [verbose,shell=False] prog3
+    [verbose,shell=0] prog3
     prog4 arg1 arg2
     prog5 arg1
 

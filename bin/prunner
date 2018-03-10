@@ -357,9 +357,9 @@ def read_from_commandline(param):
 
 
 def usage():
-    print "[-d|--run-from-dir] dir           - run programm from directory"
-    print "[-f|--run-from-file] file         - run programm from file"
-    print "[-r|--run] '[params]prog args..'  - run programm from command line"
+    print "[-d|--run-from-dir] dir           - run programs from directory"
+    print "[-f|--run-from-file] file         - run programs from file"
+    print "[-r|--run] '[params]prog args..'  - run programs from command line"
     print "[-p|--monitor-pid] pid            - pid of main process (for monitoring)"
     print "[-v|--verbose]                    - Print info messages"
     print "[-V|--version]                    - Version info"
