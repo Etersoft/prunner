@@ -1,0 +1,29 @@
+stages:
+  - build
+
+build and public:
+  stage: build
+  script:
+    - export TMPDIR=/tmp/.private/${USER}; export TMP=${TMPDIR}
+
+    - git remote | grep -q gitlab || git remote add gitlab git@gitlab.eterfund.ru:/pv/prunner
+    - /usr/bin/rpmlog -q -r -l
+    - korinf -f prunner.spec x86_64/ALTLinux/p8 /var/ftp/pvt/Etersoft/RX@Etersoft/unstable
+    - korinf -f prunner.spec x86_64/ALTLinux/Sisyphus /var/ftp/pvt/Etersoft/RX@Etersoft/unstable
+    - korinf -f prunner.spec x86_64/ALTLinux/p7 /var/ftp/pvt/Etersoft/RX@Etersoft/unstable
+    - git push -f --tags gitlab HEAD:master
+
+    - mkdir -p RPM/log; cp -rf ${HOME}/RPM/log/*prunner*.log RPM/log/
+    - mkdir -p korinf-log; cp -rf ${HOME}/RPM/tmp/korinf-log/* korinf-log/
+
+  artifacts:
+    paths:
+    - RPM/log
+    - korinf-log
+    expire_in: 10 days
+
+  only:
+    - master
+
+  tags:
+    - rx-build
