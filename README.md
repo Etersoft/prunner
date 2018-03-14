@@ -18,6 +18,7 @@ Help
     -d | --run-from-dir dir                - run programs from directory
     -f | --run-from-file file              - run programs from file
     -r | --run '[params]prog args..'       - run programs from command line"
+    -a | --run-after 'prog args..'         - run programs after main process terminated"
     -p | --monitor-pid pid                 - pid of main process (for monitoring)
     -v | --verbose                         - Print info messages
     -V | --version                         - Version info
@@ -90,3 +91,10 @@ Example 4
 ---------
     prunner -p PID -d ./child.d -f runlist.txt -r '[restart=2] prog1 arg1 arg2'
 Т.е. можно указывать и каталог и файл и -r одновременно
+
+Example 5 
+---------
+    prunner -p PID -d ./child.d --run-after 'prog_after_term arg1 arg2'
+В этом примере запустяться программы из каталога *child.d*, а после того
+как процесс PID завершится, запустится программа *'prog_after_term'*
+Параметр *--run-after* или *-a* можно указывать многократно.

@@ -188,15 +188,22 @@ def do_check_alive(childs):
         term_check_alive.wait(check_alive_period)
 
 
-def do_monitoring(main_pid, run_list, not_monit):
+def do_run_after(run_list):
+    for p in run_list:
+        p.run()
+
+
+def do_monitoring(main_pid, run_list, not_monit, run_after_list):
     """
     Running processes and monitoring
     :param main_pid: pid for monitoring
     :param run_list: list of process for run
     :param not_monit: True - disable monitoring (only run process)
+    :param run_after: True - run programs after main process terminated
     :return: None
     """
     proc_list = list()
+    interrupted = False
     for p in run_list:
         if p.run():
             proc_list.append(p)
@@ -204,13 +211,18 @@ def do_monitoring(main_pid, run_list, not_monit):
             terminate_all_process(proc_list)
             exit(1)
 
-    check_alive_thread = threading.Thread(target=do_check_alive, args=(proc_list,))
+    check_alive_thread = None
+    if len(proc_list) > 0:
+        check_alive_thread = threading.Thread(target=do_check_alive, args=(proc_list,))
+
     try:
         if not_monit:
             return
 
         term_check_alive.clear()
-        check_alive_thread.start()
+        if check_alive_thread:
+            check_alive_thread.start()
+
         monit_process = psutil.Process(main_pid)
         while not term_check_alive.is_set():
             try:
@@ -220,13 +232,18 @@ def do_monitoring(main_pid, run_list, not_monit):
                 pass
 
     except (KeyboardInterrupt, SystemExit):
-        pass
+        interrupted = True
 
     finally:
         term_check_alive.set()
-        if check_alive_thread.is_alive():
+        if check_alive_thread and check_alive_thread.is_alive():
             check_alive_thread.join()
         terminate_all_process(proc_list)
+
+        # run programs after teminated
+        if not interrupted and len(run_after_list) > 0:
+            log_info("run programms after terminated main process...")
+            do_run_after(run_after_list)
 
 
 def terminate_all_process(proc_list):
@@ -357,10 +374,11 @@ def read_from_commandline(param):
 
 
 def usage():
+    print "[-p|--monitor-pid] pid            - pid of main process (for monitoring)"
     print "[-d|--run-from-dir] dir           - run programs from directory"
     print "[-f|--run-from-file] file         - run programs from file"
     print "[-r|--run] '[params]prog args..'  - run programs from command line"
-    print "[-p|--monitor-pid] pid            - pid of main process (for monitoring)"
+    print "[-a|--run-after] 'prog args..'    - run programs after main process terminated"
     print "[-v|--verbose]                    - Print info messages"
     print "[-V|--version]                    - Version info"
     print "[-c|--check-period] sec           - period for check processes. Default: %s" % check_alive_period
@@ -405,9 +423,10 @@ if __name__ == "__main__":
         run_list = run_list + read_from_dir(from_dir)
 
     run_list = run_list + read_from_commandline(['-r', '--run'])
+    run_after_list = read_from_commandline(['-a', '--run-after'])
 
-    if len(run_list) == 0:
+    if len(run_list) == 0 and len(run_after_list) == 0:
         log_error("not found run list. Use -h for help")
         exit(1)
 
-    do_monitoring(main_pid, run_list, not_monit=not_monit)
+    do_monitoring(main_pid=main_pid, run_list=run_list, not_monit=not_monit, run_after_list=run_after_list)
