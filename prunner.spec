@@ -1,6 +1,6 @@
 Name: prunner
 Version: 0.0.1
-Release: alt3
+Release: alt4
 
 Summary: Running and monitoring a process group
 Group: Development/Python
@@ -35,6 +35,10 @@ install -D -m0755 bin/prunner %buildroot%_bindir/%name
 %_bindir/%name
 
 %changelog
+* Thu Apr 19 2018 Etersoft Builder <builder@etersoft.ru> 0.0.1-alt4
+- added LICENSE
+- update URL (use github)
+
 * Sat Mar 17 2018 Etersoft Builder <builder@etersoft.ru> 0.0.1-alt3
 - added option '--run-after' ('-a') for run programs after main process terminated
 
