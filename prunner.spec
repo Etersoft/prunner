@@ -5,7 +5,7 @@ Release: alt3
 Summary: Running and monitoring a process group
 Group: Development/Python
 License: GPLv2
-Url: https://gitlab.eterfund.ru/pv/prunner
+Url: https://github.com/Etersoft/prunner
 
 Packager: Pavel Vainerman <pv@altlinux.ru>
 
