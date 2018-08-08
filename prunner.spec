@@ -1,6 +1,6 @@
 Name: prunner
 Version: 0.0.1
-Release: alt4
+Release: alt5
 
 Summary: Running and monitoring a process group
 Group: Development/Python
@@ -35,6 +35,9 @@ install -D -m0755 bin/prunner %buildroot%_bindir/%name
 %_bindir/%name
 
 %changelog
+* Thu Aug 09 2018 Etersoft Builder <builder@etersoft.ru> 0.0.1-alt5
+- added special build for c7 and publication of events in the telegram channel
+
 * Thu Apr 19 2018 Etersoft Builder <builder@etersoft.ru> 0.0.1-alt4
 - added LICENSE
 - update URL (use github)
