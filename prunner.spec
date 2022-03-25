@@ -1,6 +1,6 @@
 Name: prunner
-Version: 0.0.1
-Release: alt7
+Version: 0.0.2
+Release: alt1
 
 Summary: Running and monitoring a process group
 
@@ -14,14 +14,10 @@ Source: %name-%version.tar
 
 BuildArch: noarch
 
-# Automatically added by buildreq on Thu Feb 15 2018
-# optimized out: python-base python-modules python3 python3-base
-BuildRequires: python-dev
-
-Requires: sudo python-module-psutil
+BuildRequires: rpm-build-python3
 
 %description
-Running and monitoring a process group
+Running and monitoring a process group.
 
 %prep
 %setup
@@ -36,6 +32,9 @@ install -D -m0755 bin/prunner %buildroot%_bindir/%name
 %_bindir/%name
 
 %changelog
+* Fri Mar 25 2022 Vitaly Lipatov <lav@altlinux.ru> 0.0.2-alt1
+- switch to python3
+
 * Fri Jul 12 2019 Vitaly Lipatov <lav@altlinux.ru> 0.0.1-alt7
 - set as noarch, pack README.md
 
