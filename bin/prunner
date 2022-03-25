@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import sys
@@ -7,7 +7,7 @@ import threading
 import psutil
 import time
 
-PRUNNER_VERSION = "0.0.1"
+PRUNNER_VERSION = "0.0.2"
 
 # Global variables
 timeout_for_terminate = 5  # sec
@@ -20,12 +20,12 @@ term_check_alive.clear()
 
 
 def log_error(text):
-    print "(prunner): ERROR: %s" % text
+    print("(prunner): ERROR: %s" % text)
 
 
 def log_info(text):
     if verbose:
-        print "(prunner): %s" % text
+        print("(prunner): %s" % text)
 
 
 def get_arg_param(param, defval=""):
@@ -374,23 +374,23 @@ def read_from_commandline(param):
 
 
 def usage():
-    print "[-p|--monitor-pid] pid            - pid of main process (for monitoring)"
-    print "[-d|--run-from-dir] dir           - run programs from directory"
-    print "[-f|--run-from-file] file         - run programs from file"
-    print "[-r|--run] '[params]prog args..'  - run programs from command line"
-    print "[-a|--run-after] 'prog args..'    - run programs after main process terminated"
-    print "[-v|--verbose]                    - Print info messages"
-    print "[-V|--version]                    - Version info"
-    print "[-c|--check-period] sec           - period for check processes. Default: %s" % check_alive_period
-    print "[-t|--terminate-timeout] sec      - timeout for teminate processes"
-    print "                                    Then the processes will be killed. Default: %s" % timeout_for_terminate
-    print "--disable-monitor                 - only run process"
+    print("[-p|--monitor-pid] pid            - pid of main process (for monitoring)")
+    print("[-d|--run-from-dir] dir           - run programs from directory")
+    print("[-f|--run-from-file] file         - run programs from file")
+    print("[-r|--run] '[params]prog args..'  - run programs from command line")
+    print("[-a|--run-after] 'prog args..'    - run programs after main process terminated")
+    print("[-v|--verbose]                    - Print info messages")
+    print("[-V|--version]                    - Version info")
+    print("[-c|--check-period] sec           - period for check processes. Default: %s" % check_alive_period)
+    print("[-t|--terminate-timeout] sec      - timeout for teminate processes")
+    print("                                    Then the processes will be killed. Default: %s" % timeout_for_terminate)
+    print("--disable-monitor                 - only run process")
 
 
 if __name__ == "__main__":
 
     if check_arg_param(['--version', '-V']):
-        print "Version: %s" % PRUNNER_VERSION
+        print("Version: %s" % PRUNNER_VERSION)
         exit(0)
 
     if check_arg_param(['-h', '--help']):
